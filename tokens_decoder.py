@@ -9,7 +9,7 @@ import numpy as np
 
 model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
 
-snac_device = "cuda:1"
+snac_device = "cuda"
 model = model.to(snac_device)
 
 
