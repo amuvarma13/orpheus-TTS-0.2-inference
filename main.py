@@ -17,7 +17,7 @@ class MinimalLLM:
             top_p=0.6, 
             max_tokens=2000, 
             repetition_penalty=1.1, 
-            stop_token_ids=[128258]
+            stop_token_ids=[49158]
         )
         self.initialize_model()
 
