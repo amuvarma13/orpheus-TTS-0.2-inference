@@ -2,7 +2,7 @@ import asyncio
 import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 
-def main():
+async def main():
     # Setup engine arguments with the target model and desired settings.
     engine_args = AsyncEngineArgs(
          model="amuvarma/135m-tts-tune-checkpoint-1300-of-1300",
