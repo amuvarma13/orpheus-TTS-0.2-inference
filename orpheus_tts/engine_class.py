@@ -3,6 +3,7 @@ import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 import threading
 import queue
+from .decoder import tokens_decoder_sync
 
 class EngineClass:
     def __init__(self, model_name, dtype=torch.bfloat16):
@@ -52,5 +53,8 @@ class EngineClass:
             yield token
 
         thread.join()
+    
+    def generate_speech(self, **kwargs):
+        return tokens_decoder_sync(self.generate_tokens_sync(**kwargs))
 
 
