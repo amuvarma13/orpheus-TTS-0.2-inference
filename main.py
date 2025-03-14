@@ -5,6 +5,7 @@ import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 from transformers import AutoTokenizer
 from tokens_decoder import tokens_decoder
+import uuid
 
 class MinimalLLM:
     def __init__(self, model_name="canopylabs/orpheus-tts-0.1-primary"):
@@ -40,14 +41,18 @@ class MinimalLLM:
         prompt_string = self.tokenizer.decode(modified_input_ids[0].tolist())
         return prompt_string
 
+
+
     async def generate_tokens(self, prompt: str):
         prompt_string = self.process_prompt(prompt)
         previous_text = ""
-        async for result in self.model.generate(prompt_string, self.sampling_params):
+        req_id = str(uuid.uuid4())  # Generate a unique request id
+        async for result in self.model.generate(prompt_string, self.sampling_params, request_id=req_id):
             new_text = result.outputs[0].text[len(previous_text):]
             previous_text = result.outputs[0].text
             if new_text:
                 yield new_text
+
 
 async def main():
     prompt = "Hello world, this is a minimal test"
