@@ -74,16 +74,16 @@ def convert_to_audio(multiframe, count):
 
 
 
-def tokens_decoder(token_gen):
+async def tokens_decoder(token_gen):
     buffer = []
     count = 0
-    for token_sim in token_gen:        
+    async for token_sim in token_gen:        
         token = turn_token_into_id(token_sim, count)
 
         if token is None:
-           yield token_sim
+            yield token_sim
         else:
-            if token >0:
+            if token > 0:
                 buffer.append(token)
                 count += 1
 
@@ -92,4 +92,5 @@ def tokens_decoder(token_gen):
                     audio_samples = convert_to_audio(buffer_to_proc, count)
                     if audio_samples is not None:
                         yield audio_samples
+
 
