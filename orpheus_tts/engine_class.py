@@ -19,32 +19,25 @@ class EngineClass:
     
     def _format_prompt(self, prompt):
         return f"<custom_token_3>{prompt}<custom_token_4><custom_token_5>"
-    
-    def generate_tokens(self, 
-                        prompt, 
-                        request_id="req-001", 
-                        temperature=0.6, 
-                        top_p=0.8, 
-                        max_tokens=1200, 
-                        stop_token_ids=[49158], 
-                        repetition_penalty=1.3):
-        formatted_prompt = self._format_prompt(prompt)
-        print(formatted_prompt)
-        
+
+    def generate_tokens_sync(self, prompt, request_id="req-001", temperature=0.6, top_p=0.8, max_tokens=1200, stop_token_ids = [49158], repetition_penalty=1.3):
+        prompt = self._format_prompt(prompt)
+        print(prompt)
         sampling_params = SamplingParams(
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            stop_token_ids=stop_token_ids,
-            repetition_penalty=repetition_penalty,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,  # Adjust max_tokens as needed.
+        stop_token_ids = stop_token_ids, 
+        repetition_penalty=repetition_penalty, 
         )
 
         token_queue = queue.Queue()
 
         async def async_producer():
-            async for result in self.engine.generate(formatted_prompt, sampling_params, request_id=request_id):
+            async for result in self.engine.generate(prompt, sampling_params, request_id=request_id):
+                # Place each token text into the queue.
                 token_queue.put(result.outputs[0].text)
-            token_queue.put(None)
+            token_queue.put(None)  # Sentinel to indicate completion.
 
         def run_async():
             asyncio.run(async_producer())
@@ -60,23 +53,4 @@ class EngineClass:
 
         thread.join()
 
-    async def generate_tokens_async(self, 
-                                    prompt, 
-                                    request_id="req-001", 
-                                    temperature=0.6, 
-                                    top_p=0.8, 
-                                    max_tokens=1200, 
-                                    stop_token_ids=[49158], 
-                                    repetition_penalty=1.3):
-        formatted_prompt = self._format_prompt(prompt)
-        
-        sampling_params = SamplingParams(
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            stop_token_ids=stop_token_ids,
-            repetition_penalty=repetition_penalty,
-        )
-        
-        async for result in self.engine.generate(formatted_prompt, sampling_params, request_id=request_id):
-            yield result.outputs[0].text
+
