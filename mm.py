@@ -26,4 +26,4 @@ async def main():
          print(result.outputs[0].text, end="")
 
 # Run the async generation process.
-asyncio.run(main())
+main()
