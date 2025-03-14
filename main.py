@@ -54,7 +54,7 @@ class MinimalLLM:
                 yield new_text
 
 
-async def main():
+def main():
     prompt = "Hello world, this is a minimal test"
     minimal_llm = MinimalLLM()
 
@@ -65,5 +65,5 @@ async def main():
     async for decoded_output in tokens_decoder(raw_token_generator()):
         print(decoded_output, end="", flush=True)
 
-asyncio.run(main())
+main()
 
