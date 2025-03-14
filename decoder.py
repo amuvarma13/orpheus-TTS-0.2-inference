@@ -1,11 +1,10 @@
-# Import any necessary modules
-# import snac  # Uncommented as per your initial code
-import torch
-frames = []
-# my_tensors = []
-import torch
 from snac import SNAC
 import numpy as np
+import torch
+import asyncio
+import threading
+import queue
+
 
 model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
 
@@ -13,18 +12,8 @@ snac_device = "cuda"
 model = model.to(snac_device)
 
 
-def turn_token_into_id(token, index): 
-    div_seven_remainder = index % 7
-    if token.startswith("<custom_token_") and token.endswith(">"):
-        try:
-            number_str = token[14:-1]  
-            return int(number_str) - 10 - (div_seven_remainder*4096)
-        except ValueError:
-            pass
-  
-    
-
 def convert_to_audio(multiframe, count):
+  frames = []
   if len(multiframe) < 7:
     return
   
@@ -62,6 +51,10 @@ def convert_to_audio(multiframe, count):
       codes_2 = torch.cat([codes_2, torch.tensor([frame[i+6]], device=snac_device, dtype=torch.int32)])
 
   codes = [codes_0.unsqueeze(0), codes_1.unsqueeze(0), codes_2.unsqueeze(0)]
+  # check that all tokens are between 0 and 4096 otherwise return *
+  if torch.any(codes[0] < 0) or torch.any(codes[0] > 4096) or torch.any(codes[1] < 0) or torch.any(codes[1] > 4096) or torch.any(codes[2] < 0) or torch.any(codes[2] > 4096):
+    return
+
   with torch.inference_mode():
     audio_hat = model.decode(codes)
   
@@ -72,16 +65,40 @@ def convert_to_audio(multiframe, count):
   audio_bytes = audio_int16.tobytes()
   return audio_bytes
 
-
-
+def turn_token_into_id(token_string, index):
+    # Strip whitespace
+    token_string = token_string.strip()
+    
+    # Find the last token in the string
+    last_token_start = token_string.rfind("<custom_token_")
+    
+    if last_token_start == -1:
+        print("No token found in the string")
+        return None
+    
+    # Extract the last token
+    last_token = token_string[last_token_start:]
+    
+    # Process the last token
+    if last_token.startswith("<custom_token_") and last_token.endswith(">"):
+        try:
+            number_str = last_token[14:-1]
+            return int(number_str) - 10 - ((index % 7) * 4096)
+        except ValueError:
+            print(f"Failed to convert '{number_str}' to integer")
+            return None
+    else:
+        print("The token format is incorrect:", repr(last_token))
+        return None
+  
+    
 async def tokens_decoder(token_gen):
     buffer = []
     count = 0
-    async for token_sim in token_gen:        
+    async for token_sim in token_gen:       
         token = turn_token_into_id(token_sim, count)
-
         if token is None:
-            yield token_sim
+            print("*")
         else:
             if token > 0:
                 buffer.append(token)
@@ -94,3 +111,32 @@ async def tokens_decoder(token_gen):
                         yield audio_samples
 
 
+# ------------------ Synchronous Tokens Decoder Wrapper ------------------ #
+def tokens_decoder_sync(syn_token_gen):
+
+    audio_queue = queue.Queue()
+
+    # Convert the synchronous token generator into an async generator.
+    async def async_token_gen():
+        for token in syn_token_gen:
+            yield token
+
+    async def async_producer():
+        # tokens_decoder.tokens_decoder is assumed to be an async generator that processes tokens.
+        async for audio_chunk in tokens_decoder(async_token_gen()):
+            audio_queue.put(audio_chunk)
+        audio_queue.put(None)  # Sentinel
+
+    def run_async():
+        asyncio.run(async_producer())
+
+    thread = threading.Thread(target=run_async)
+    thread.start()
+
+    while True:
+        audio = audio_queue.get()
+        if audio is None:
+            break
+        yield audio
+
+    thread.join()

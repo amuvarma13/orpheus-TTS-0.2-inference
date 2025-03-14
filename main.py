@@ -1,68 +1,65 @@
 import asyncio
-import os
-import gc
 import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
-from transformers import AutoTokenizer
-from tokens_decoder import tokens_decoder
-import uuid
+import threading
+import queue
 
-class MinimalLLM:
-    def __init__(self, model_name="amuvarma/135m-tts-tune-checkpoint-1300-of-1300"):
-        self.model_name = model_name
-        self.start_token = torch.tensor([[49155]], dtype=torch.int64)
-        self.end_tokens = torch.tensor([[49156]], dtype=torch.int64)
-        self.sampling_params = SamplingParams(
-            temperature=0.9, 
-            top_p=0.6, 
-            max_tokens=2000, 
-            repetition_penalty=1.1, 
-            stop_token_ids=[49158]
-        )
-        self.initialize_model()
 
-    def initialize_model(self):
-        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            gc.collect()
-        engine_args = AsyncEngineArgs(
-            model=self.model_name, 
-            dtype=torch.float16,
-            gpu_memory_utilization=0.8
-        )
-        self.model = AsyncLLMEngine.from_engine_args(engine_args)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
-    def process_prompt(self, prompt: str) -> str:
-        prompt = prompt + " " + "<zac>"
-        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
-        modified_input_ids = torch.cat([self.start_token, input_ids, self.end_tokens], dim=1)
-        prompt_string = self.tokenizer.decode(modified_input_ids[0].tolist())
-        return prompt_string
 
-    async def generate_tokens(self, prompt: str):
-        prompt_string = self.process_prompt(prompt)
-        previous_text = ""
-        req_id = str(uuid.uuid4())  # Generate a unique request id
-        async for result in self.model.generate(prompt_string, self.sampling_params, request_id=req_id):
-            new_text = result.outputs[0].text[len(previous_text):]
-            previous_text = result.outputs[0].text
-            if new_text:
-                yield new_text
+# ------------------ Setup the vLLM Engine ------------------ #
+engine_args = AsyncEngineArgs(
+    model="amuvarma/135m-tts-tune-checkpoint-1300-of-1300",
+    dtype=torch.bfloat16,
+)
+engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-# Instead of defining a separate main() function, define your async printing coroutine inline:
-if __name__ == "__main__":
-    prompt = "Hello world, this is a minimal test"
-    minimal_llm = MinimalLLM()
 
-    async def raw_token_generator():
-        async for text in minimal_llm.generate_tokens(prompt):
-            yield text
 
-    async def print_tokens():
-        async for decoded_output in tokens_decoder(raw_token_generator()):
-            print(decoded_output, end="", flush=True)
 
-    # Run the asynchronous printing coroutine directly in the main process:
-    asyncio.run(print_tokens())
+def format_prompt(prompt):
+    formatted_prompt = f"<custom_token_3>{prompt}<custom_token_4><custom_token_5>"
+    return formatted_prompt
+
+
+def generate_tokens_sync(prompt, request_id="req-001", temperature=0.6, top_p=0.8, max_tokens=1200, stop_token_ids = [49158], repetition_penalty=1.3):
+    prompt = format_prompt(prompt)
+    print(prompt)
+    sampling_params = SamplingParams(
+      temperature=temperature,
+      top_p=top_p,
+      max_tokens=max_tokens,  # Adjust max_tokens as needed.
+      stop_token_ids = stop_token_ids, 
+      repetition_penalty=repetition_penalty, 
+    )
+
+    token_queue = queue.Queue()
+
+    async def async_producer():
+        async for result in engine.generate(prompt, sampling_params, request_id=request_id):
+            # Place each token text into the queue.
+            token_queue.put(result.outputs[0].text)
+        token_queue.put(None)  # Sentinel to indicate completion.
+
+    def run_async():
+        asyncio.run(async_producer())
+
+    thread = threading.Thread(target=run_async)
+    thread.start()
+
+    while True:
+        token = token_queue.get()
+        if token is None:
+            break
+        yield token
+
+    thread.join()
+
+
+
+
+
+
+
+
+
