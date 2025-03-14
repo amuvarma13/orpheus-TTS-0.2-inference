@@ -41,8 +41,6 @@ class MinimalLLM:
         prompt_string = self.tokenizer.decode(modified_input_ids[0].tolist())
         return prompt_string
 
-
-
     async def generate_tokens(self, prompt: str):
         prompt_string = self.process_prompt(prompt)
         previous_text = ""
@@ -53,8 +51,8 @@ class MinimalLLM:
             if new_text:
                 yield new_text
 
-
-def main():
+# Instead of defining a separate main() function, define your async printing coroutine inline:
+if __name__ == "__main__":
     prompt = "Hello world, this is a minimal test"
     minimal_llm = MinimalLLM()
 
@@ -62,8 +60,9 @@ def main():
         async for text in minimal_llm.generate_tokens(prompt):
             yield text
 
-    for decoded_output in tokens_decoder(raw_token_generator()):
-        print(decoded_output, end="", flush=True)
+    async def print_tokens():
+        async for decoded_output in tokens_decoder(raw_token_generator()):
+            print(decoded_output, end="", flush=True)
 
-main()
-
+    # Run the asynchronous printing coroutine directly in the main process:
+    asyncio.run(print_tokens())
