@@ -57,8 +57,8 @@ async def main():
         async for text in minimal_llm.generate_tokens(prompt):
             yield text
 
-    for decoded_output in tokens_decoder(raw_token_generator()):
+    async for decoded_output in tokens_decoder(raw_token_generator()):
         print(decoded_output, end="", flush=True)
 
-# Run the main function in the notebook
 asyncio.run(main())
+
