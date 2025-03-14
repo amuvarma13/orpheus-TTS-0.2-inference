@@ -8,10 +8,10 @@ from tokens_decoder import tokens_decoder
 import uuid
 
 class MinimalLLM:
-    def __init__(self, model_name="canopylabs/orpheus-tts-0.1-primary"):
+    def __init__(self, model_name="amuvarma/360m-tts-tune-checkpoint-112806-of-112806"):
         self.model_name = model_name
-        self.start_token = torch.tensor([[128259]], dtype=torch.int64)
-        self.end_tokens = torch.tensor([[128009, 128260]], dtype=torch.int64)
+        self.start_token = torch.tensor([[49155]], dtype=torch.int64)
+        self.end_tokens = torch.tensor([[49156]], dtype=torch.int64)
         self.sampling_params = SamplingParams(
             temperature=0.9, 
             top_p=0.6, 
