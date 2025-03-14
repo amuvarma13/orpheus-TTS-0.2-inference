@@ -62,7 +62,7 @@ def main():
         async for text in minimal_llm.generate_tokens(prompt):
             yield text
 
-    async for decoded_output in tokens_decoder(raw_token_generator()):
+    for decoded_output in tokens_decoder(raw_token_generator()):
         print(decoded_output, end="", flush=True)
 
 main()
