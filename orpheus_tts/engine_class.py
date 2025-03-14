@@ -181,6 +181,56 @@ class EngineClass:
 
         thread.join()
         audio_thread.join()
+    def generate_tokens_sync(self, 
+                            prompt, 
+                            request_id="req-001", 
+                            temperature=0.6, 
+                            top_p=0.8, 
+                            max_tokens=1200, 
+                            stop_token_ids=[49158], 
+                            repetition_penalty=1.3):
+        """
+        Synchronous wrapper for generate_tokens_async.
+        This function wraps the asynchronous generator using a dedicated event loop
+        in a separate thread and a thread-safe queue.
+        """
+        import asyncio
+        import threading
+        import queue
+
+        audio_queue = queue.Queue()
+        loop = asyncio.new_event_loop()
+
+        async def async_runner():
+            async for audio_chunk in self.generate_tokens_async(
+                prompt=prompt,
+                request_id=request_id,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                stop_token_ids=stop_token_ids,
+                repetition_penalty=repetition_penalty
+            ):
+                audio_queue.put(audio_chunk)
+            # Signal the end of the generator with a sentinel value
+            audio_queue.put(None)
+
+        def runner(loop):
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(async_runner())
+            loop.close()
+
+        thread = threading.Thread(target=runner, args=(loop,))
+        thread.start()
+
+        # Yield audio chunks synchronously as they become available.
+        while True:
+            audio = audio_queue.get()
+            if audio is None:
+                break
+            yield audio
+
+        thread.join()
 
     async def generate_tokens_async(self, 
                                    prompt, 
