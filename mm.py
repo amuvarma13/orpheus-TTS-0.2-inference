@@ -2,7 +2,7 @@ import asyncio
 import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
 
-async def main():
+def main():
     # Setup engine arguments with the target model and desired settings.
     engine_args = AsyncEngineArgs(
          model="amuvarma/135m-tts-tune-checkpoint-1300-of-1300",
@@ -22,7 +22,7 @@ async def main():
     request_id = "req-001"  # A unique identifier for this request.
     
     # Generate tokens asynchronously and print the output.
-    async for result in engine.generate(prompt, sampling_params, request_id=request_id):
+    for result in engine.generate(prompt, sampling_params, request_id=request_id):
          print(result.outputs[0].text, end="")
 
 # Run the async generation process.
