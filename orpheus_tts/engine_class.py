@@ -1,15 +1,35 @@
 import asyncio
 import torch
 from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
+from transformers import AutoTokenizer
 import threading
 import queue
 from .decoder import tokens_decoder_sync
 
-class EngineClass:
+class OrpheusModel:
     def __init__(self, model_name, dtype=torch.bfloat16):
         self.model_name = model_name
         self.dtype = dtype
         self.engine = self._setup_engine()
+        self.available_voices = ["zoe", "zac","jess", "leo", "mia", "julia", "leah"]
+        self.tokeniser = AutoTokenizer.from_pretrained(model_name)
+
+    
+    def map_model_params(self, model_name):
+        model_map = {
+            "nano-150m":{
+                "repo_id": "snakers4/vllm-3b-2048",
+            }, 
+            "micro-400m":{
+                "repo_id": "amuvarma/360m-tts-tune-checkpoint-112806-of-112806",
+            }, 
+            "small-1b":{
+                "repo_id": "amuvarma/1b-tts-pretrain-checkpoint-108493-of-108493",
+            },
+            "medium-3b":{
+                "repo_id": "amuvarma/3b-tts-pretrain-checkpoint-108493-of-108493",
+            },
+        }
         
     def _setup_engine(self):
         engine_args = AsyncEngineArgs(
@@ -18,11 +38,37 @@ class EngineClass:
         )
         return AsyncLLMEngine.from_engine_args(engine_args)
     
-    def _format_prompt(self, prompt):
-        return f"<custom_token_3>{prompt}<custom_token_4><custom_token_5>"
+    def validate_voice(self, voice):
+        if voice:
+            if voice not in self.engine.available_voices:
+                raise ValueError(f"Voice {voice} is not available for model {self.model_name}")
+    
+    def _format_prompt(self, prompt, voice="leah", model_type="larger"):
+        if model_type == "smaller":
+            if voice:
+                return f"<custom_token_3>{prompt}[{voice}]<custom_token_4><custom_token_5>"
+            else:
+                return f"<custom_token_3>{prompt}<custom_token_4><custom_token_5>"
+        else:
+            if voice:
+                adapted_prompt = f"{prompt}[{voice}]"
+                prompt_tokens = self.tokeniser(adapted_prompt, return_tensors="pt")
+                start_token = torch.tensor([[ 128259]], dtype=torch.int64)
+                end_tokens = torch.tensor([[128009, 128260, 128261, 128257]], dtype=torch.int64)
+                all_input_ids = torch.cat([start_token, prompt_tokens.input_ids[0], end_tokens], dim=1)
+                return all_input_ids
+            else:
+                prompt_tokens = self.tokeniser(prompt, return_tensors="pt")
+                start_token = torch.tensor([[ 128259]], dtype=torch.int64)
+                end_tokens = torch.tensor([[128009, 128260, 128261, 128257]], dtype=torch.int64)
+                all_input_ids = torch.cat([start_token, prompt_tokens.input_ids[0], end_tokens], dim=1)
+                return all_input_ids
 
-    def generate_tokens_sync(self, prompt, request_id="req-001", temperature=0.6, top_p=0.8, max_tokens=1200, stop_token_ids = [49158], repetition_penalty=1.3):
-        prompt = self._format_prompt(prompt)
+
+
+
+    def generate_tokens_sync(self, prompt, voice=None, request_id="req-001", temperature=0.6, top_p=0.8, max_tokens=1200, stop_token_ids = [49158], repetition_penalty=1.3):
+        prompt_input_ids = self._format_prompt(prompt, voice)
         print(prompt)
         sampling_params = SamplingParams(
         temperature=temperature,
@@ -35,7 +81,7 @@ class EngineClass:
         token_queue = queue.Queue()
 
         async def async_producer():
-            async for result in self.engine.generate(prompt, sampling_params, request_id=request_id):
+            async for result in self.engine.generate(prompt_input_ids=prompt_input_ids, sampling_params=sampling_params, request_id=request_id):
                 # Place each token text into the queue.
                 token_queue.put(result.outputs[0].text)
             token_queue.put(None)  # Sentinel to indicate completion.
