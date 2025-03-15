@@ -85,10 +85,8 @@ def turn_token_into_id(token_string, index):
             number_str = last_token[14:-1]
             return int(number_str) - 10 - ((index % 7) * 4096)
         except ValueError:
-            print(f"Failed to convert '{number_str}' to integer")
             return None
     else:
-        print("The token format is incorrect:", repr(last_token))
         return None
   
     
@@ -98,7 +96,7 @@ async def tokens_decoder(token_gen):
     async for token_sim in token_gen:       
         token = turn_token_into_id(token_sim, count)
         if token is None:
-            print("*")
+            pass
         else:
             if token > 0:
                 buffer.append(token)
