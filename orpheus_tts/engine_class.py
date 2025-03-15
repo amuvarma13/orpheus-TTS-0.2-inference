@@ -61,7 +61,7 @@ class OrpheusModel:
                 prompt_tokens = self.tokeniser(prompt, return_tensors="pt")
                 start_token = torch.tensor([[ 128259]], dtype=torch.int64)
                 end_tokens = torch.tensor([[128009, 128260, 128261, 128257]], dtype=torch.int64)
-                all_input_ids = torch.cat([start_token, prompt_tokens.input_ids[0], end_tokens], dim=1)
+                all_input_ids = torch.cat([start_token, prompt_tokens.input_ids, end_tokens], dim=1)
                 return all_input_ids
 
 
