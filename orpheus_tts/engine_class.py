@@ -56,13 +56,15 @@ class OrpheusModel:
                 start_token = torch.tensor([[ 128259]], dtype=torch.int64)
                 end_tokens = torch.tensor([[128009, 128260, 128261, 128257]], dtype=torch.int64)
                 all_input_ids = torch.cat([start_token, prompt_tokens.input_ids, end_tokens], dim=1)
-                return all_input_ids
+                prompt_string = self.tokeniser.decode(all_input_ids[0])
+                return prompt_string
             else:
                 prompt_tokens = self.tokeniser(prompt, return_tensors="pt")
                 start_token = torch.tensor([[ 128259]], dtype=torch.int64)
                 end_tokens = torch.tensor([[128009, 128260, 128261, 128257]], dtype=torch.int64)
                 all_input_ids = torch.cat([start_token, prompt_tokens.input_ids, end_tokens], dim=1)
-                return all_input_ids
+                prompt_string = self.tokeniser.decode(all_input_ids[0])
+                return prompt_string
 
  
 
@@ -81,7 +83,7 @@ class OrpheusModel:
         token_queue = queue.Queue()
 
         async def async_producer():
-            async for result in self.engine.generate(prompt_token_ids=prompt_input_ids, sampling_params=sampling_params, request_id=request_id):
+            async for result in self.engine.generate(prompt=prompt_string, sampling_params=sampling_params, request_id=request_id):
                 # Place each token text into the queue.
                 token_queue.put(result.outputs[0].text)
             token_queue.put(None)  # Sentinel to indicate completion.
