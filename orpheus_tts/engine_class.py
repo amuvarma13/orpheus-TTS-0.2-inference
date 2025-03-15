@@ -81,7 +81,7 @@ class OrpheusModel:
         token_queue = queue.Queue()
 
         async def async_producer():
-            async for result in self.engine.generate(prompt_input_ids=prompt_input_ids, sampling_params=sampling_params, request_id=request_id):
+            async for result in self.engine.generate(prompt_token_ids=prompt_input_ids, sampling_params=sampling_params, request_id=request_id):
                 # Place each token text into the queue.
                 token_queue.put(result.outputs[0].text)
             token_queue.put(None)  # Sentinel to indicate completion.
