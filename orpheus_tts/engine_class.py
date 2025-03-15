@@ -70,7 +70,7 @@ class OrpheusModel:
 
 
     def generate_tokens_sync(self, prompt, voice=None, request_id="req-001", temperature=0.6, top_p=0.8, max_tokens=1200, stop_token_ids = [49158], repetition_penalty=1.3):
-        prompt_input_ids = self._format_prompt(prompt, voice)
+        prompt_string = self._format_prompt(prompt, voice)
         print(prompt)
         sampling_params = SamplingParams(
         temperature=temperature,
